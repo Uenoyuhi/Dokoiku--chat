@@ -126,9 +126,11 @@ export default function Home() {
 
     // ── Google Maps API 読み込み ──
     function loadMapsAPI() {
-        const s  = document.createElement('script');
-        s.src    = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async`;
-        s.async  = true;
+        if (document.getElementById('gmaps-script')) return;
+        const s = document.createElement('script');
+        s.id = 'gmaps-script';
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker&loading=async`;
+        s.async = true;
         s.onload = () => setMapsLoaded(true);
         document.head.appendChild(s);
     }
@@ -138,12 +140,28 @@ export default function Home() {
         if (!mapsLoaded || !selectedPlace || !location || !mapRef.current) return;
         const map = new window.google.maps.Map(mapRef.current, {
             zoom: 14,
-            center: { lat: (location.latitude + selectedPlace.location.latitude) / 2, lng: (location.longitude + selectedPlace.location.longitude) / 2 },
+            center: {
+                lat: (location.latitude + selectedPlace.location.latitude) / 2,
+                lng: (location.longitude + selectedPlace.location.longitude) / 2,
+            },
             mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
+            mapId: 'dokoiku_map',
         });
-        new window.google.maps.Marker({ position: { lat: location.latitude, lng: location.longitude }, map, title: '現在地', icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
-        new window.google.maps.Marker({ position: { lat: selectedPlace.location.latitude, lng: selectedPlace.location.longitude }, map, title: selectedPlace.displayName.text });
-        new window.google.maps.Polyline({ path: [{ lat: location.latitude, lng: location.longitude }, { lat: selectedPlace.location.latitude, lng: selectedPlace.location.longitude }], geodesic: true, strokeColor: '#667eea', strokeOpacity: 0.5, strokeWeight: 3, map });
+        new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: location.latitude, lng: location.longitude },
+            map, title: '現在地',
+        });
+        new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: selectedPlace.location.latitude, lng: selectedPlace.location.longitude },
+            map, title: selectedPlace.displayName.text,
+        });
+        new window.google.maps.Polyline({
+            path: [
+                { lat: location.latitude, lng: location.longitude },
+                { lat: selectedPlace.location.latitude, lng: selectedPlace.location.longitude },
+            ],
+            geodesic: true, strokeColor: '#667eea', strokeOpacity: 0.5, strokeWeight: 3, map,
+        });
     }, [mapsLoaded, selectedPlace, location]);
 
     // ── ルート情報更新 ──
@@ -451,11 +469,11 @@ export default function Home() {
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
                     onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-                            e.preventDefault();
-                            handleSend();
-                        }
-                    }}
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        handleSend();
+    }
+}}
                     onInput={e => {
                         e.target.style.height = '';
                         e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';

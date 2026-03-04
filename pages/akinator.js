@@ -216,29 +216,42 @@ export default function Akinator() {
   }, []);
 
   function loadGoogleMaps() {
-    if (!GOOGLE_MAPS_API_KEY || document.getElementById('gmaps-script')) return;
+    if (document.getElementById('gmaps-script')) return;
     const script = document.createElement('script');
     script.id = 'gmaps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,marker&loading=async`;
     script.async = true;
     script.onload = () => setMapsLoaded(true);
     document.head.appendChild(script);
-  }
+}
 
-  useEffect(() => {
-    if (phase === 'route' && mapsLoaded && currentPlace && userLocation && routeMapRef.current) {
-      const centerLat = (userLocation.latitude + currentPlace.location.latitude) / 2;
-      const centerLng = (userLocation.longitude + currentPlace.location.longitude) / 2;
-      const map = new window.google.maps.Map(routeMapRef.current, {
-        zoom: 15,
-        center: { lat: centerLat, lng: centerLng },
+useEffect(() => {
+    if (!mapsLoaded || !currentPlace || !userLocation || !routeMapRef.current) return;
+    const map = new window.google.maps.Map(routeMapRef.current, {
+        zoom: 14,
+        center: {
+            lat: (userLocation.latitude + currentPlace.location.latitude) / 2,
+            lng: (userLocation.longitude + currentPlace.location.longitude) / 2,
+        },
         mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
-      });
-      new window.google.maps.Marker({ position: { lat: userLocation.latitude, lng: userLocation.longitude }, map, title: '現在地', icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
-      new window.google.maps.Marker({ position: { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude }, map, title: currentPlace.displayName.text, icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' });
-      new window.google.maps.Polyline({ path: [{ lat: userLocation.latitude, lng: userLocation.longitude }, { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude }], geodesic: true, strokeColor: '#f5576c', strokeOpacity: 0.5, strokeWeight: 3, map });
-    }
-  }, [phase, mapsLoaded, currentPlace, userLocation]);
+        mapId: 'dokoiku_map',
+    });
+    new window.google.maps.marker.AdvancedMarkerElement({
+        position: { lat: userLocation.latitude, lng: userLocation.longitude },
+        map, title: '現在地',
+    });
+    new window.google.maps.marker.AdvancedMarkerElement({
+        position: { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
+        map, title: currentPlace.displayName.text,
+    });
+    new window.google.maps.Polyline({
+        path: [
+            { lat: userLocation.latitude, lng: userLocation.longitude },
+            { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
+        ],
+        geodesic: true, strokeColor: '#f5576c', strokeOpacity: 0.5, strokeWeight: 3, map,
+    });
+}, [mapsLoaded, currentPlace, userLocation]);
 
   function handleOptionClick(option) {
     if (option.destination) {
