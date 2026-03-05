@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 //  定数
 // ══════════════════════════════════════════════
 const MAX_TURNS    = 4;
-const RETRY_DELAYS = [5000, 10000, 20000];
+const RETRY_DELAYS = [5000, 10000, 20000]; // retryAfterMs がない場合のフォールバック用
 
 // ══════════════════════════════════════════════
 //  システムプロンプト生成
@@ -50,7 +50,7 @@ ${forceSuggest}
 \`\`\``;
 }
 
-// ══════════════════════════════════════════════
+// ═══════════════════��══════════════════════════
 //  距離計算
 // ══════════════════════════════════════════════
 function calcDist(lat1, lon1, lat2, lon2) {
@@ -67,29 +67,31 @@ function calcDist(lat1, lon1, lat2, lon2) {
 // ══════════════════════════════════════════════
 //  メインコンポーネント
 // ══════════════════════════════════════════════
-export default function Home() {
+export default function ChatPage() {
     const router = useRouter();
 
     // ── 状態 ──
-    const [messages,     setMessages]     = useState([]);
-    const [inputText,    setInputText]    = useState('');
-    const [isLoading,    setIsLoading]    = useState(false);
-    const [location,     setLocation]     = useState(null);
-    const [locStatus,    setLocStatus]    = useState('loading');
-    const [locText,      setLocText]      = useState('位置情報: 取得中...');
-    const [mapsLoaded,   setMapsLoaded]   = useState(false);
-    const [proposal,     setProposal]     = useState(null);
-    const [places,       setPlaces]       = useState([]);
-    const [placesStatus, setPlacesStatus] = useState('idle');
-    const [selectedPlace,setSelectedPlace]= useState(null);
-    const [travelMode,   setTravelMode]   = useState('transit');
-    const [routeInfo,    setRouteInfo]    = useState(null);
+    const [messages,      setMessages]      = useState([]);
+    const [inputText,     setInputText]     = useState('');
+    const [isLoading,     setIsLoading]     = useState(false);
+    const [location,      setLocation]      = useState(null);
+    const [locStatus,     setLocStatus]     = useState('loading');
+    const [locText,       setLocText]       = useState('位置情報: 取得中...');
+    const [mapsLoaded,    setMapsLoaded]    = useState(false);
+    const [proposal,      setProposal]      = useState(null);
+    const [places,        setPlaces]        = useState([]);
+    const [placesStatus,  setPlacesStatus]  = useState('idle');
+    const [selectedPlace, setSelectedPlace] = useState(null);
+    const [travelMode,    setTravelMode]    = useState('transit');
+    const [routeInfo,     setRouteInfo]     = useState(null);
 
-    const historyRef  = useRef([]);
-    const turnRef     = useRef(0);
-    const chatAreaRef = useRef(null);
-    const mapRef      = useRef(null);
-    const inputRef    = useRef(null);
+    const historyRef     = useRef([]);
+    const turnRef        = useRef(0);
+    const isSendingRef   = useRef(false);   // ✅ 修正⑤ 重複送信防止フラグ
+    const isComposingRef = useRef(false);   // IME入力中フラグ
+    const chatAreaRef    = useRef(null);
+    const mapRef         = useRef(null);
+    const inputRef       = useRef(null);
 
     // ── スクロール ──
     useEffect(() => {
@@ -108,7 +110,11 @@ export default function Home() {
         }
         navigator.geolocation.getCurrentPosition(
             pos => {
-                const loc = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+                const loc = {
+                    latitude:  pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy:  pos.coords.accuracy,
+                };
                 setLocation(loc);
                 setLocStatus('ok');
                 setLocText(`📍 取得済み (±${Math.round(pos.coords.accuracy)}m)`);
@@ -119,17 +125,21 @@ export default function Home() {
                 setLocStatus('err');
                 setLocText('位置情報: 取得できませんでした');
                 addAiMessage('こんにちは！気分から行き先を一緒に考えよう😊\n今日はどんな感じにしたい？');
+                loadMapsAPI();
             },
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
         );
     }, []);
 
-    // ── Google Maps API 読み込み ──
+    // ── Google Maps API 読み込み（重複防止）──
     function loadMapsAPI() {
-        if (document.getElementById('gmaps-script')) return;
+        if (document.getElementById('gmaps-script')) {
+            if (window.google?.maps) setMapsLoaded(true);
+            return;
+        }
         const s = document.createElement('script');
-        s.id = 'gmaps-script';
-        s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker&loading=async`;
+        s.id    = 'gmaps-script';
+        s.src   = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker&loading=async`;
         s.async = true;
         s.onload = () => setMapsLoaded(true);
         document.head.appendChild(s);
@@ -141,7 +151,7 @@ export default function Home() {
         const map = new window.google.maps.Map(mapRef.current, {
             zoom: 14,
             center: {
-                lat: (location.latitude + selectedPlace.location.latitude) / 2,
+                lat: (location.latitude  + selectedPlace.location.latitude)  / 2,
                 lng: (location.longitude + selectedPlace.location.longitude) / 2,
             },
             mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
@@ -157,7 +167,7 @@ export default function Home() {
         });
         new window.google.maps.Polyline({
             path: [
-                { lat: location.latitude, lng: location.longitude },
+                { lat: location.latitude,  lng: location.longitude },
                 { lat: selectedPlace.location.latitude, lng: selectedPlace.location.longitude },
             ],
             geodesic: true, strokeColor: '#667eea', strokeOpacity: 0.5, strokeWeight: 3, map,
@@ -167,10 +177,10 @@ export default function Home() {
     // ── ルート情報更新 ──
     useEffect(() => {
         if (!selectedPlace || !location) return;
-        const dist    = calcDist(location.latitude, location.longitude, selectedPlace.location.latitude, selectedPlace.location.longitude);
-        const speed   = { transit: 3, walking: 1.4, driving: 15, bicycling: 6 }[travelMode];
-        const minutes = Math.ceil(dist / speed / 60);
-        const distStr = dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(2)}km`;
+        const dist     = calcDist(location.latitude, location.longitude, selectedPlace.location.latitude, selectedPlace.location.longitude);
+        const speed    = { transit: 3, walking: 1.4, driving: 15, bicycling: 6 }[travelMode];
+        const minutes  = Math.ceil(dist / speed / 60);
+        const distStr  = dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(2)}km`;
         const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${location.latitude},${location.longitude}&destination=${selectedPlace.location.latitude},${selectedPlace.location.longitude}&travelmode=${travelMode}`;
         setRouteInfo({ distStr, minutes, gmapsUrl });
     }, [selectedPlace, travelMode, location]);
@@ -183,13 +193,13 @@ export default function Home() {
     // ── 送信処理 ──
     async function handleSend() {
         const text = inputText.trim();
-        if (!text || isLoading || proposal) return;
+        // ✅ 修正⑤ 重複送信・IME中・ロード中・提案済みをすべてガード
+        if (!text || isLoading || proposal || isSendingRef.current || isComposingRef.current) return;
 
+        isSendingRef.current = true;
         setInputText('');
         setMessages(prev => [...prev, { role: 'user', text }]);
         setIsLoading(true);
-
-        // 送信後もフォーカスを維持
         setTimeout(() => inputRef.current?.focus(), 0);
 
         historyRef.current.push({ role: 'user', parts: [{ text }] });
@@ -199,20 +209,24 @@ export default function Home() {
         for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
             try {
                 const res = await fetch('/api/gemini', {
-                    method: 'POST',
+                    method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        conversationHistory: historyRef.current,
+                        // ✅ 修正④ 全履歴ではなく最新8件だけ送る（トークン節約・429対策）
+                        conversationHistory: historyRef.current.slice(-8),
                         systemPrompt: buildSystemPrompt(location, turnRef.current),
                     }),
                 });
                 const data = await res.json();
+
                 if (!res.ok) {
                     const status = res.status;
                     if ((status === 429 || status === 500 || status === 503) && attempt < RETRY_DELAYS.length) {
-                        const waitSec = Math.ceil(RETRY_DELAYS[attempt] / 1000);
+                        // ✅ 修正③ Gemini が指定する retryAfterMs を優先、なければフォールバック値を使う
+                        const waitMs  = data.retryAfterMs ?? RETRY_DELAYS[attempt];
+                        const waitSec = Math.ceil(waitMs / 1000);
                         setMessages(prev => [...prev, { role: 'ai', text: `⏳ 混み合っています。${waitSec}秒後に再試行します...`, isRetry: true }]);
-                        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+                        await new Promise(r => setTimeout(r, waitMs));
                         setMessages(prev => prev.filter(m => !m.isRetry));
                         continue;
                     }
@@ -226,20 +240,26 @@ export default function Home() {
                     historyRef.current.pop();
                     turnRef.current--;
                     setIsLoading(false);
+                    isSendingRef.current = false;
                     return;
                 }
             }
         }
 
-        if (!reply) { setIsLoading(false); return; }
+        if (!reply) {
+            setIsLoading(false);
+            isSendingRef.current = false;
+            return;
+        }
+
         historyRef.current.push({ role: 'model', parts: [{ text: reply }] });
 
         const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/);
         const cleanText = reply.replace(/```json[\s\S]*?```/, '').trim();
         if (cleanText) setMessages(prev => [...prev, { role: 'ai', text: cleanText }]);
-        setIsLoading(false);
 
-        // AI返答後もフォーカスを維持
+        setIsLoading(false);
+        isSendingRef.current = false;
         setTimeout(() => inputRef.current?.focus(), 0);
 
         if (jsonMatch) {
@@ -257,7 +277,7 @@ export default function Home() {
         setPlacesStatus('loading');
         try {
             const res = await fetch('/api/places', {
-                method: 'POST',
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ searchType, latitude: location.latitude, longitude: location.longitude }),
             });
@@ -273,8 +293,9 @@ export default function Home() {
 
     // ── リセット ──
     function resetAll() {
-        historyRef.current = [];
-        turnRef.current    = 0;
+        historyRef.current   = [];
+        turnRef.current      = 0;
+        isSendingRef.current = false;
         setMessages([]);
         setInputText('');
         setProposal(null);
@@ -388,9 +409,7 @@ export default function Home() {
                     </div>
                 ))}
                 {isLoading && (
-                    <div className="typing">
-                        <span></span><span></span><span></span>
-                    </div>
+                    <div className="typing"><span></span><span></span><span></span></div>
                 )}
             </div>
 
@@ -468,12 +487,14 @@ export default function Home() {
                     ref={inputRef}
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
+                    onCompositionStart={() => { isComposingRef.current = true; }}
+                    onCompositionEnd={() => { isComposingRef.current = false; }}
                     onKeyDown={e => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-        e.preventDefault();
-        handleSend();
-    }
-}}
+                        if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
+                            e.preventDefault();
+                            handleSend();
+                        }
+                    }}
                     onInput={e => {
                         e.target.style.height = '';
                         e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
