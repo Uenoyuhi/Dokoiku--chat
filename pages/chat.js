@@ -10,7 +10,7 @@ const RETRY_DELAYS = [5000, 10000, 20000]; // retryAfterMs がない場合のフ
 // ══════════════════════════════════════════════
 //  システムプロンプト生成
 // ══════════════════════════════════════════════
-function buildSystemPrompt(location, turnCount) {
+function buildSystemPrompt(location, turnCount, userProfile) {
     const hour = new Date().getHours();
     const time = hour < 12 ? '午前' : hour < 17 ? '午後' : '夜';
     const loc  = location
@@ -22,6 +22,15 @@ function buildSystemPrompt(location, turnCount) {
 
     return `あなたはお出かけ提案AIです。
 現在時刻:${time} 現在地:${loc}
+${userProfile ? `
+## ユーザーのパーソナル情報（最重要・必ず参照）
+以下はユーザーが事前に登録した自己紹介です。提案・会話の全体を通してこの情報を活かすこと。
+ただし、会話の中でユーザーが言及した情報はそちらを優先すること。
+
+${userProfile}
+
+---
+` : ''}
 
 ## 絶対に守るルール
 - 質問は1回につき1つだけ
@@ -84,6 +93,7 @@ export default function ChatPage() {
     const [selectedPlace, setSelectedPlace] = useState(null);
     const [travelMode,    setTravelMode]    = useState('transit');
     const [routeInfo,     setRouteInfo]     = useState(null);
+    const [userProfile,   setUserProfile]   = useState('');
 
     const historyRef     = useRef([]);
     const turnRef        = useRef(0);
@@ -92,6 +102,12 @@ export default function ChatPage() {
     const chatAreaRef    = useRef(null);
     const mapRef         = useRef(null);
     const inputRef       = useRef(null);
+
+    // ── プロフィール読み込み ──
+    useEffect(() => {
+        const saved = localStorage.getItem('dokoiku_profile');
+        if (saved) setUserProfile(saved);
+    }, []);
 
     // ── スクロール ──
     useEffect(() => {
@@ -214,7 +230,7 @@ export default function ChatPage() {
                     body: JSON.stringify({
                         // ✅ 修正④ 全履歴ではなく最新8件だけ送る（トークン節約・429対策）
                         conversationHistory: historyRef.current.slice(-8),
-                        systemPrompt: buildSystemPrompt(location, turnRef.current),
+                        systemPrompt: buildSystemPrompt(location, turnRef.current, userProfile),
                     }),
                 });
                 const data = await res.json();
