@@ -1,179 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-
-const destinationTree = {
-  question: "今、どんな気分ですか？",
-  options: [
-    {
-      text: "心をリセットしたい",
-      next: {
-        question: "どのくらい時間がありますか？",
-        options: [
-          {
-            text: "30分～1時間",
-            destination: {
-              name: "☕ カフェ",
-              description: "近所の落ち着いたカフェで、コーヒーを飲みながら心を落ち着ける。",
-              duration: "30分～1時間", budget: "500～1500円", people: "一人がおすすめ", vibe: "落ち着き・リラックス", searchType: "cafe",
-            }
-          },
-          {
-            text: "2～3時間",
-            destination: {
-              name: "🌲 公園・自然散策",
-              description: "緑に囲まれた自然の中をのんびり歩く。新鮮な空気と景色でリセット。",
-              duration: "1～3時間", budget: "無料～500円", people: "一人または少人数", vibe: "穏やか・デトックス", searchType: "park",
-            }
-          },
-          {
-            text: "半日以上",
-            destination: {
-              name: "♨️ 温泉・銭湯",
-              description: "お湯に浸かってリラックス。心も体も疲れが取れます。",
-              duration: "1～3時間", budget: "1000～5000円", people: "一人でも友達とでも", vibe: "リラックス・贅沢感", searchType: "spa",
-            }
-          }
-        ]
-      }
-    },
-    {
-      text: "新しい刺激がほしい",
-      next: {
-        question: "どのくらい冒険心がありますか？",
-        options: [
-          {
-            text: "気軽に新しい経験したい",
-            destination: {
-              name: "🍜 新しいお店",
-              description: "話題の飲食店や、まだ行ったことないお店に挑戦。新しい味の発見。",
-              duration: "1～2時間", budget: "1000～3000円", people: "一人または友達と", vibe: "ワクワク・発見", searchType: "restaurant",
-            }
-          },
-          {
-            text: "ちょっと冒険したい",
-            destination: {
-              name: "🎨 美術館・展示会",
-              description: "新しい芸術に触れる。知らない世界の扉が開きます。",
-              duration: "1～2時間", budget: "500～2000円", people: "一人がおすすめ", vibe: "知的・感動", searchType: "art_gallery",
-            }
-          },
-          {
-            text: "大冒険したい",
-            destination: {
-              name: "🏕️ ハイキング・トレッキング",
-              description: "普段行かない場所へ。新しい景色と達成感が待っています。",
-              duration: "3～6時間", budget: "500～2000円", people: "友達とがおすすめ", vibe: "爽快感・冒険", searchType: "hiking",
-            }
-          }
-        ]
-      }
-    },
-    {
-      text: "友達と楽しく過ごしたい",
-      next: {
-        question: "どんなふうに楽しみたいですか？",
-        options: [
-          {
-            text: "ワイワイ盛り上がりたい",
-            destination: {
-              name: "🎤 カラオケ",
-              description: "存分に歌って、笑って、盛り上がる。最高のストレス解消。",
-              duration: "1～3時間", budget: "2000～4000円", people: "3人以上がおすすめ", vibe: "楽しい・盛り上がり", searchType: "karaoke",
-            }
-          },
-          {
-            text: "ゆったり話したい",
-            destination: {
-              name: "🍹 バー・居酒屋",
-              description: "くつろいだ雰囲気で、友達と語り合う時間。良い思い出が生まれます。",
-              duration: "2～3時間", budget: "2000～5000円", people: "2人以上", vibe: "くつろぎ・会話", searchType: "bar",
-            }
-          },
-          {
-            text: "一緒に何かやりたい",
-            destination: {
-              name: "🎮 ゲームセンター・ボウリング",
-              description: "友達と競ったり、協力したり。盛り上がり度100%。",
-              duration: "1～2時間", budget: "1500～3000円", people: "3人以上", vibe: "競争・楽しさ", searchType: "bowling_alley",
-            }
-          }
-        ]
-      }
-    },
-    {
-      text: "エネルギーを発散したい",
-      next: {
-        question: "どんなふうに発散したいですか？",
-        options: [
-          {
-            text: "体を動かしたい",
-            destination: {
-              name: "🏃 ジム・スポーツ",
-              description: "体を動かす快感。心もスッキリして、ストレスが吹き飛びます。",
-              duration: "1～2時間", budget: "500～2000円", people: "一人でも友達とでも", vibe: "爽快感・達成感", searchType: "gym",
-            }
-          },
-          {
-            text: "思いっきり遊びたい",
-            destination: {
-              name: "🎪 遊園地・テーマパーク",
-              description: "アトラクション、イベント、グルメ。全力で楽しむ1日。",
-              duration: "4～8時間", budget: "5000～10000円", people: "友達や家族と", vibe: "興奮・楽しさ", searchType: "amusement_park",
-            }
-          },
-          {
-            text: "創造的に発散したい",
-            destination: {
-              name: "🎨 ワークショップ・DIY",
-              description: "ものを作ることで、心と頭がスッキリ。自分だけの作品が完成。",
-              duration: "2～3時間", budget: "1000～3000円", people: "一人から複数人", vibe: "創造・達成感", searchType: "art_studio",
-            }
-          }
-        ]
-      }
-    },
-    {
-      text: "目的地は決めずに、ぶらぶら歩きたい",
-      next: {
-        question: "どんなエリアでぶらぶらしたいですか？",
-        options: [
-          {
-            text: "おしゃれなショッピングエリア",
-            destination: {
-              name: "🛍️ 繁華街・商店街",
-              description: "ウィンドウショッピングや新しいお店の発見。偶然の出会いがある。",
-              duration: "1～3時間", budget: "0～5000円（自由）", people: "一人でも友達とでも", vibe: "発見・ワクワク", searchType: "shopping_mall",
-            }
-          },
-          {
-            text: "古い町並みや歴史的な場所",
-            destination: {
-              name: "🏛️ 古町・寺社仏閣",
-              description: "時間が止まったような空間。非日常を味わえます。",
-              duration: "1～2時間", budget: "無料～500円", people: "一人がおすすめ", vibe: "落ち着き・非日常", searchType: "temple",
-            }
-          },
-          {
-            text: "川沿いや海沿い",
-            destination: {
-              name: "🌊 河川敷・海辺",
-              description: "水辺でぼんやり。心が静かになり、考えがまとまります。",
-              duration: "1～2時間", budget: "無料", people: "一人がおすすめ", vibe: "瞑想・リセット", searchType: "beach",
-            }
-          }
-        ]
-      }
-    }
-  ]
-};
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export default function Akinator() {
   const router = useRouter();
-  const [currentNode, setCurrentNode] = useState(destinationTree);
-  const [questionDepth, setQuestionDepth] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [phase, setPhase] = useState('question');
   const [destination, setDestination] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -186,9 +22,35 @@ export default function Akinator() {
   const [travelMode, setTravelMode] = useState('transit');
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const routeMapRef = useRef(null);
-  const maxDepth = 2;
 
-  const progress = ((questionDepth + 1) / (maxDepth + 1)) * 100;
+  const MAX_QUESTIONS = 4;
+  const progress = Math.min((answers.length / MAX_QUESTIONS) * 100, 100);
+
+  const fetchInitialQuestion = useCallback(async () => {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const res = await fetch('/api/akinator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: [], location: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAiError('AIの応答に失敗しました。もう一度試してください。');
+      } else if (data.type === 'question') {
+        setCurrentQuestion(data);
+      }
+    } catch {
+      setAiError('AIの応答に失敗しました。もう一度試してください。');
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInitialQuestion();
+  }, [fetchInitialQuestion]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -223,45 +85,74 @@ export default function Akinator() {
     script.async = true;
     script.onload = () => setMapsLoaded(true);
     document.head.appendChild(script);
-}
+  }
 
-useEffect(() => {
+  useEffect(() => {
     if (!mapsLoaded || !currentPlace || !userLocation || !routeMapRef.current) return;
     const map = new window.google.maps.Map(routeMapRef.current, {
-        zoom: 14,
-        center: {
-            lat: (userLocation.latitude + currentPlace.location.latitude) / 2,
-            lng: (userLocation.longitude + currentPlace.location.longitude) / 2,
-        },
-        mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
-        mapId: 'dokoiku_map',
+      zoom: 14,
+      center: {
+        lat: (userLocation.latitude + currentPlace.location.latitude) / 2,
+        lng: (userLocation.longitude + currentPlace.location.longitude) / 2,
+      },
+      mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
+      mapId: 'dokoiku_map',
     });
     new window.google.maps.marker.AdvancedMarkerElement({
-        position: { lat: userLocation.latitude, lng: userLocation.longitude },
-        map, title: '現在地',
+      position: { lat: userLocation.latitude, lng: userLocation.longitude },
+      map, title: '現在地',
     });
     new window.google.maps.marker.AdvancedMarkerElement({
-        position: { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
-        map, title: currentPlace.displayName.text,
+      position: { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
+      map, title: currentPlace.displayName.text,
     });
     new window.google.maps.Polyline({
-        path: [
-            { lat: userLocation.latitude, lng: userLocation.longitude },
-            { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
-        ],
-        geodesic: true, strokeColor: '#f5576c', strokeOpacity: 0.5, strokeWeight: 3, map,
+      path: [
+        { lat: userLocation.latitude, lng: userLocation.longitude },
+        { lat: currentPlace.location.latitude, lng: currentPlace.location.longitude },
+      ],
+      geodesic: true, strokeColor: '#f5576c', strokeOpacity: 0.5, strokeWeight: 3, map,
     });
-}, [mapsLoaded, currentPlace, userLocation]);
+  }, [mapsLoaded, currentPlace, userLocation]);
 
-  function handleOptionClick(option) {
-    if (option.destination) {
-      setDestination(option.destination);
-      setPhase('result');
-      if (userLocation) searchNearbyPlaces(option.destination.searchType, userLocation);
-    } else {
-      setCurrentNode(option.next);
-      setQuestionDepth(d => d + 1);
+  async function fetchNextStep(answersToSend) {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const res = await fetch('/api/akinator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: answersToSend, location: userLocation }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAiError('AIの応答に失敗しました。もう一度試してください。');
+        return;
+      }
+
+      if (data.type === 'question') {
+        setCurrentQuestion(data);
+      } else if (data.type === 'destination') {
+        setDestination(data.destination);
+        setPhase('result');
+        if (userLocation) searchNearbyPlaces(data.destination.searchType, userLocation);
+      }
+    } catch {
+      setAiError('AIの応答に失敗しました。もう一度試してください。');
+    } finally {
+      setAiLoading(false);
     }
+  }
+
+  function handleOptionClick(selectedOption) {
+    const newAnswers = [...answers, { question: currentQuestion.question, selectedOption }];
+    setAnswers(newAnswers);
+    fetchNextStep(newAnswers);
+  }
+
+  function handleRetry() {
+    fetchNextStep(answers);
   }
 
   async function searchNearbyPlaces(searchType, loc) {
@@ -321,14 +212,16 @@ useEffect(() => {
   }
 
   function reset() {
-    setCurrentNode(destinationTree);
-    setQuestionDepth(0);
+    setAnswers([]);
+    setCurrentQuestion(null);
     setPhase('question');
     setDestination(null);
     setNearbyPlaces([]);
     setPlacesError('');
     setCurrentPlace(null);
     setTravelMode('transit');
+    setAiError('');
+    fetchInitialQuestion();
   }
 
   const indicatorColor = { waiting: '#ccc', loading: '#ffa500', success: '#4CAF50', error: '#f44336' }[locationStatus];
@@ -369,18 +262,33 @@ useEffect(() => {
         {phase === 'question' && (
           <>
             <div style={{ marginBottom: 30, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '1.3em', color: '#333', fontWeight: 500, lineHeight: 1.6 }}>{currentNode.question}</div>
+              {aiLoading ? (
+                <span style={{ display: 'inline-block', width: 32, height: 32, border: '3px solid #e0e0e0', borderTop: `3px solid ${accentColor}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              ) : (
+                <div style={{ fontSize: '1.3em', color: '#333', fontWeight: 500, lineHeight: 1.6 }}>{currentQuestion?.question}</div>
+              )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {currentNode.options.map((option, i) => (
-                <button key={i} onClick={() => handleOptionClick(option)}
-                  style={{ background: 'linear-gradient(135deg, #f093fb, #f5576c)', color: 'white', padding: '18px 25px', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '1em', transition: 'all 0.3s ease' }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(245,87,108,0.3)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                  {option.text}
+
+            {aiError ? (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: '#f44336', fontSize: '0.9em', marginBottom: 12 }}>{aiError}</div>
+                <button onClick={handleRetry} disabled={aiLoading}
+                  style={{ background: accentColor, color: 'white', padding: '12px 24px', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.95em' }}>
+                  再試行
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {currentQuestion?.options.map((option, i) => (
+                  <button key={i} onClick={() => handleOptionClick(option)} disabled={aiLoading}
+                    style={{ background: 'linear-gradient(135deg, #f093fb, #f5576c)', color: 'white', padding: '18px 25px', border: 'none', borderRadius: 10, cursor: aiLoading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '1em', transition: 'all 0.3s ease', opacity: aiLoading ? 0.6 : 1 }}
+                    onMouseEnter={e => { if (!aiLoading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(245,87,108,0.3)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
 
