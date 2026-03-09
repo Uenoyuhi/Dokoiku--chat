@@ -33,10 +33,11 @@ export default function Akinator() {
     setAiLoading(true);
     setAiError('');
     try {
+      const userProfile = localStorage.getItem('dokoiku_profile') || '';
       const res = await fetch('/api/akinator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: [], location: userLocationRef.current }),
+        body: JSON.stringify({ answers: [], location: userLocationRef.current, userProfile }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -121,10 +122,11 @@ export default function Akinator() {
   }, [mapsLoaded, currentPlace, userLocation]);
 
   async function callAkinator(answersToSend, loc) {
+    const userProfile = localStorage.getItem('dokoiku_profile') || '';
     const res = await fetch('/api/akinator', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers: answersToSend, location: loc }),
+      body: JSON.stringify({ answers: answersToSend, location: loc, userProfile }),
     });
     const data = await res.json();
     if (!res.ok) {

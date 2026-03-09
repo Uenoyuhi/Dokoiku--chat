@@ -1,7 +1,13 @@
 import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
   const router = useRouter();
+  const [profileSet, setProfileSet] = useState(false);
+
+  useEffect(() => {
+    setProfileSet(!!localStorage.getItem('dokoiku_profile'));
+  }, []);
 
   return (
     <>
@@ -53,6 +59,20 @@ export default function Home() {
             <div style={{ fontSize: '1.2em', marginBottom: 6 }}>アキネーター形式</div>
             <div style={{ fontSize: '0.8em', opacity: 0.85, fontWeight: 400, lineHeight: 1.5 }}>
               質問に答えるだけで行き先が決まる。<br />選択肢を選んでいくシンプルな診断。
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/profile')}
+            style={{ background: 'linear-gradient(135deg, #43e97b, #38f9d7)', color: 'white', padding: '24px 25px', border: 'none', borderRadius: 16, cursor: 'pointer', fontWeight: 600, fontSize: '1.1em', transition: 'all 0.3s ease', textAlign: 'left' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(56,249,215,0.4)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <div style={{ fontSize: '1.8em', marginBottom: 8 }}>🧑</div>
+            <div style={{ fontSize: '1.2em', marginBottom: 6 }}>プロフィール設定</div>
+            <div style={{ fontSize: '0.8em', opacity: 0.85, fontWeight: 400, lineHeight: 1.5 }}>
+              あなたの情報を登録して、より的確な提案を受け取ろう。<br />
+              {profileSet ? '✅ 設定済み' : '未設定'}
             </div>
           </button>
         </div>

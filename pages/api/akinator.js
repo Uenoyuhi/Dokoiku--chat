@@ -3,7 +3,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { answers, location } = req.body;
+    const { answers, location, userProfile } = req.body;
 
     if (!Array.isArray(answers)) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -17,11 +17,15 @@ export default async function handler(req, res) {
         ? `ユーザーの現在地: 緯度${location.latitude.toFixed(4)}, 経度${location.longitude.toFixed(4)}`
         : 'ユーザーの現在地: 不明';
 
+    const profileSection = userProfile
+        ? `## ユーザーのパーソナル情報（最重要・必ず参照）\n以下はユーザーが事前に登録した自己紹介です。提案・質問の生成全体を通してこの情報を活かすこと。ただし、回答から判明した情報を優先すること。\n\n${userProfile}\n\n---\n\n`
+        : '';
+
     const systemPrompt = `あなたはアキネイター形式のお出かけ提案AIです。
 現在時刻: ${now}
 ${locationInfo}
 
-ルール:
+${profileSection}ルール:
 - 最初の質問は必ず「今どんな気分ですか？」から始める
 - 最低2回・最大4回質問して情報を収集してから提案する
 - 前の回答を踏まえて次の質問・選択肢を変える（動的に絞り込む）
